@@ -24,14 +24,15 @@
     ; Game variables
     board       db 64 dup(0)  ; 8x8 board (0=empty, 1=ship)
     vis_board   db 64 dup('*'); Visible board
-    missiles    db 10         ; Number of missiles
-    score       db 0          ; Player's score
+    missiles    dw 2         ; Number of missiles
+    score       dw 0          ; Player's score
     hits        db 0          ; Number of hits
     shots       db 0          ; Total shots taken
     level       db 1          ; Current game level
     row         db 0          ; Selected row
     col         db 0          ; Selected column
     seed        dw 0          ; Random seed
+    accuracy    db ?
     
 .code
 main proc
@@ -70,8 +71,8 @@ game_loop:
     call show_board
     
     ; Check if game over
-    mov al, missiles
-    cmp al, 0
+    mov ax, missiles
+    cmp ax, 0
     je end_game
     
     ; Get player's move
@@ -100,10 +101,10 @@ end_game:
     call reveal_ships
     
     ; Check if player advances to level 2
-    mov al, hits
-    mov bl, 10
-    mul bl
-    cmp ax, 50
+    ;mov al, hits
+    ;mov bl, 10
+    ;mul bl
+    cmp accuracy, 50
     jl no_level_up
     
     ; If level 1, advance to level 2
@@ -138,8 +139,7 @@ no_level_up:
 main endp
 
 
-;########################################################################
-; Initialize the game board
+;######################################## Initialize the game board
 init_board proc
     ; Clear the board
     mov cx, 64
@@ -160,7 +160,7 @@ clear_loop:
 place_ships:
     ; Get random position
     mov ax, seed
-    mov bx, 8405h
+    mov bx, 9999h
     mul bx
     add ax, 1
     mov seed, ax
@@ -176,8 +176,10 @@ place_ships:
     
     loop place_ships
     
+    ;call reveal_ships
+    
     ; Reset game stats
-    mov missiles, 10
+    mov missiles, 2
     mov score, 0
     mov hits, 0
     mov shots, 0
@@ -185,9 +187,7 @@ place_ships:
     ret
 init_board endp
 
-;######################################################################
-
-; Display the board
+;######################################## Display the board
 show_board proc
     ; Display column numbers
     call space
@@ -251,25 +251,50 @@ col_loop:
     int 21h
     
     
-    mov al, missiles
-    add dl, '0'
+    mov ax, missiles
+    mov bl, 10
+    div bl
+    
+    add ah, '0'
+    add al, '0'
+    mov bh, ah
+    mov bl, al
+    
+    mov ah, 2
+    
+    mov dl, bl
     int 21h
+    mov dl, bh
+    int 21h
+    
     call new_line
     
     mov ah, 9
     lea dx, score_msg
     int 21h
     
+    mov ax, score
+    mov bl, 10
+    div bl
+    
+    add ah, '0'
+    add al, '0'
+    mov bh, ah
+    mov bl, al
+    
     mov ah, 2
-    mov dl, score
-    add dl, '0'
+    
+    mov dl, bl
     int 21h
+    mov dl, bh
+    int 21h
+
     call new_line
     
     ret
 show_board endp
 
-; Get player's move
+;######################################## Get player's move
 get_move proc
     ; Get row
     mov ah, 9
@@ -296,7 +321,7 @@ get_move proc
     ret
 get_move endp
 
-; Process the player's move
+;######################################## Process the player's move
 process_move proc
     ; Calculate board index: row*8 + col
     mov al, row
@@ -346,8 +371,12 @@ move_done:
     ret
 process_move endp
 
-; Show accuracy percentage
+;######################################## Show accuracy percentage
 show_accuracy proc
+    mov ah, 9
+    lea dx, accuracy_msg
+    int 21h
+    
     ; Check for division by zero
     cmp shots, 0
     je zero_acc
@@ -358,37 +387,40 @@ show_accuracy proc
     mov cx, 100
     mul cx
     
-    mov cx, ax
-    
-    mov al, shots
-    mov ah, 0
-    
-    mov bx, ax
-    mov ax, cx
+    mov bl, shots
+    mov bh, 0
     
     mov dx, 0
     div bx
     
+    mov accuracy, al
+    
     ; Display accuracy
-    mov cx, ax
-    
-    mov ah, 9
-    lea dx, accuracy_msg
-    int 21h
-    
-    ; Convert to digits
-    mov ax, cx
-    mov bl, 10
+    mov bl, 100
     div bl
     
-    mov cl, ah
+    mov cl, al
+    mov ch, ah
     
     mov ah, 2
-    mov dl, al
+    mov dl, cl
     add dl, '0'
     int 21h
     
-    mov dl, cl
+    mov ah, 0
+    mov al, ch
+    mov bx, 0
+    mov bl, 10
+    div bl
+    
+    mov dh, ah
+    mov dl, al
+    
+    mov ah, 2
+    add dl, '0'
+    int 21h
+    
+    mov dl, dh
     add dl, '0'
     int 21h
     
@@ -400,10 +432,6 @@ show_accuracy proc
     ret
     
 zero_acc:
-    mov ah, 9
-    lea dx, accuracy_msg
-    int 21h
-    
     mov ah, 2
     mov dl, '0'
     int 21h
@@ -416,7 +444,7 @@ zero_acc:
     ret
 show_accuracy endp
 
-; Reveal ship locations
+;######################################## Reveal ship locations
 reveal_ships proc
     mov ah, 9
     lea dx, reveal_msg
@@ -424,18 +452,18 @@ reveal_ships proc
     call new_line
     
     ; Display column numbers
-    mov ah, 2
-    mov dl, ' '
-    int 21h
-    mov dl, ' '
-    int 21h
+    call space
+    call space
     
     mov cx, 8
     mov dl, '1'
+    
 r_col_nums:
+    mov dh, dl
     int 21h
-    mov dl, ' '
-    int 21h
+    
+    call space
+    mov dl, dh
     inc dl
     loop r_col_nums
     
@@ -444,18 +472,21 @@ r_col_nums:
     ; Display board with ships
     mov cx, 8
     mov bx, 0
-    mov dl, '1'
+    mov dl, '1' 
+    
 r_row_loop:
+    mov dh, dl
     push cx
     
     ; Row number
     mov ah, 2
     int 21h
-    mov dl, ' '
-    int 21h
+    
+    call space
     
     ; Row cells
     mov cx, 8
+    
 r_col_loop:
     mov ah, 2
     
@@ -479,8 +510,9 @@ r_display:
     call new_line
     
     pop cx
+ 
     mov dl, '1'
-    add dl, 8
+    add dl, 9
     sub dl, cl
     loop r_row_loop
     
@@ -488,7 +520,7 @@ r_display:
     ret
 reveal_ships endp
 
-; Clear screen
+;######################################## Clear screen
 clear_screen proc
     mov ah, 0
     mov al, 3
@@ -496,6 +528,7 @@ clear_screen proc
     ret
 clear_screen endp
 
+;######################################## Space
 space proc
     mov dl, ' '
     mov ah, 2
@@ -503,7 +536,7 @@ space proc
     ret
 space endp
 
-; Print new line
+;######################################## Print new line
 new_line proc
     mov ah, 2
     mov dl, 13
