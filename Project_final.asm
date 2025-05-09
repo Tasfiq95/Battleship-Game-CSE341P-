@@ -37,7 +37,9 @@
 main proc
     mov ax, @data
     mov ds, ax
-    
+
+
+;#################################################################    
     ; Get system time for random seed
     mov ah, 2Ch
     int 21h
@@ -48,16 +50,17 @@ start_game:
     call init_board
     
     ; Show welcome message
+    lea dx, welcome_msg    
     mov ah, 9
-    lea dx, welcome_msg
     int 21h
     call new_line
     
     ; Show level
-    lea dx, level_msg
+    lea dx, level_msg    
+    mov ah, 9
     int 21h
     mov dl, level
-    add dl, '0'
+    add dl, 30h
     mov ah, 2
     int 21h
     call new_line
@@ -85,8 +88,8 @@ end_game:
     call show_board
     
     ; Show game over message
-    mov ah, 9
     lea dx, game_over
+    mov ah, 9
     int 21h
     call new_line
     
@@ -134,6 +137,8 @@ no_level_up:
     int 21h
 main endp
 
+
+;########################################################################
 ; Initialize the game board
 init_board proc
     ; Clear the board
@@ -180,21 +185,23 @@ place_ships:
     ret
 init_board endp
 
+;######################################################################
+
 ; Display the board
 show_board proc
     ; Display column numbers
-    mov ah, 2
-    mov dl, ' '
-    int 21h
-    mov dl, ' '
-    int 21h
+    call space
+    call space
     
     mov cx, 8
     mov dl, '1'
+
 col_nums:
+    mov dh, dl
     int 21h
-    mov dl, ' '
-    int 21h
+    
+    call space
+    mov dl, dh
     inc dl
     loop col_nums
     
@@ -204,23 +211,25 @@ col_nums:
     mov cx, 8
     mov bx, 0
     mov dl, '1'
+
 row_loop:
+    mov dh, dl
     push cx
     
     ; Row number
     mov ah, 2
     int 21h
-    mov dl, ' '
-    int 21h
+    
+    call space
     
     ; Row cells
     mov cx, 8
+
 col_loop:
     mov ah, 2
     mov dl, vis_board[bx]
     int 21h
-    mov dl, ' '
-    int 21h
+    call space
     
     inc bx
     loop col_loop
@@ -228,8 +237,9 @@ col_loop:
     call new_line
     
     pop cx
+ 
     mov dl, '1'
-    add dl, 8
+    add dl, 9
     sub dl, cl
     loop row_loop
     
@@ -240,8 +250,8 @@ col_loop:
     lea dx, missiles_msg
     int 21h
     
-    mov ah, 2
-    mov dl, missiles
+    
+    mov al, missiles
     add dl, '0'
     int 21h
     call new_line
@@ -485,6 +495,13 @@ clear_screen proc
     int 10h
     ret
 clear_screen endp
+
+space proc
+    mov dl, ' '
+    mov ah, 2
+    int 21h
+    ret
+space endp
 
 ; Print new line
 new_line proc
