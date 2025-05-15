@@ -1,10 +1,15 @@
-; Simple Battleship Game for EMU 8086
+; Battleship Game for EMU 8086
 ; 8x8 grid with randomized ship locations
-; 10 missiles, +1 for hit, 0 for miss
+; Default 10 missiles, +1 for hit, 0 for miss
 
-.model small
-.stack 100h
-.data
+.MODEL SMALL
+ 
+.STACK 100H
+
+.DATA
+
+; declare variables here
+
     ; Game messages
     welcome_msg  db 'BATTLESHIP GAME - 8x8 GRID$'
     level_msg    db 'LEVEL: $'
@@ -20,11 +25,12 @@
     level_up     db 'Advanced to Level 2!$'
     play_again   db 'Play again? (Y/N): $'
     reveal_msg   db 'SHIP LOCATIONS:$'
+    ask_missile  db 'WANT TO FIRE 10 MISSILES OR LESS?(Y/N) :$' 
     
     ; Game variables
     board       db 64 dup(0)  ; 8x8 board (0=empty, 1=ship)
     vis_board   db 64 dup('*'); Visible board
-    missiles    dw 2         ; Number of missiles
+    missiles    dw ?          ; Number of missiles
     score       dw 0          ; Player's score
     hits        db 0          ; Number of hits
     shots       db 0          ; Total shots taken
@@ -32,13 +38,17 @@
     row         db 0          ; Selected row
     col         db 0          ; Selected column
     seed        dw 0          ; Random seed
-    accuracy    db ?
+    accuracy    db ?          ; accuracy score
     
-.code
-main proc
-    mov ax, @data
-    mov ds, ax
+.CODE
+MAIN PROC
 
+; initialize DS
+
+MOV AX,@DATA
+MOV DS,AX
+ 
+; enter your code here
 
 ;#################################################################    
     ; Get system time for random seed
@@ -66,6 +76,8 @@ start_game:
     int 21h
     call new_line
     
+    call update_missile    
+        
 game_loop:
     ; Display board and status
     call show_board
@@ -133,10 +145,13 @@ no_level_up:
     cmp al, 'y'
     je start_game
     
-    ; Exit program
-    mov ah, 4Ch
-    int 21h
-main endp
+
+; Exit program
+
+MOV AX,4C00H
+INT 21H
+
+MAIN ENDP
 
 
 ;######################################## Initialize the game board
@@ -179,7 +194,7 @@ place_ships:
     ;call reveal_ships
     
     ; Reset game stats
-    mov missiles, 2
+    ;mov missiles, 2
     mov score, 0
     mov hits, 0
     mov shots, 0
@@ -364,12 +379,49 @@ miss:
     jmp move_done
     
 skip_move:
-    ; Invalid move, restore missile
-    inc missiles
-    
+    ; Invalid move, unchanged missile
+        
 move_done:
     ret
 process_move endp
+
+
+;######################################## update missile number from user
+update_missile proc
+    
+    mov missiles, 10
+    ; Ask for missile number
+    mov ah, 9
+    lea dx, ask_missile
+    int 21h
+    
+    mov ah, 1
+    int 21h
+    
+    cmp al, 'Y'
+    je skip
+    cmp al, 'y'
+    je skip
+    
+    call new_line
+    
+    mov ah,9
+    lea dx, missiles_msg
+    int 21h
+
+    mov ah, 1
+    int 21h
+    
+    sub al, '0'
+    mov ah, 0
+    mov missiles, ax
+    
+    skip:
+    
+    call new_line
+    ret
+    
+update_missile endp
 
 ;######################################## Show accuracy percentage
 show_accuracy proc
@@ -546,4 +598,6 @@ new_line proc
     ret
 new_line endp
 
-end main
+;exit to DOS
+
+END MAIN
